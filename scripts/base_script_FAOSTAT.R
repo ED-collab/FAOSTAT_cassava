@@ -190,3 +190,38 @@ htmlwidgets::saveWidget(ggp2, "outputs/FAOcassava.html")
 
 ham2<-partial_bundle(ggp2)
 htmlwidgets::saveWidget(ham2, "outputs/FAOpartial.html")
+
+
+
+
+
+
+
+
+#### Plotly + Gapminder version... so easy
+
+library(plotly)
+library(gapminder)
+
+
+fig <- FAOwide %>%
+  plot_ly(
+    x = ~ Production,
+    y = ~ Area,
+    size = ~ Yield,
+    color = ~ region,
+    frame = ~ Year,
+    text = ~ Country,
+    hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  )
+
+fig <- fig %>% layout(xaxis=list(type="log"))%>%
+  animation_opts(
+    500, easing = "elastic", redraw = FALSE
+  )
+
+
+fig
+

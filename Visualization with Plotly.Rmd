@@ -1,0 +1,217 @@
+---
+title: "FAOSTAT visualization with Plotly"
+author: "Erik Delaquis"
+date: "4/9/2022"
+output: github_document
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Making animated and interactive graphs from FAOSTAT data
+
+## Data download and processing
+
+As far as I can tell, FAO still stubbornly refuses to provide an API to allow us to pull data directly. This is only a minor inconvenience since downloading data from the site in standard format is pretty easy and could be automated. For this example I will just be using a manually-downloaded version of the data generated in .csv format by going to the [FAOSTAT website](https://www.fao.org/faostat/en/#data/QCL).
+
+I am going to do this for global cassava production as an example - it can be replicated with any (or multiple) crops.
+
+-   Select all countries - to make a later step easier, click the gear and choose ISO3 for country identifiers.
+
+-   Check the boxes for Area harvested, yield, production/quantity
+
+-   Under items, select cassava.
+
+-   Years - all available (goes back to 1961)
+
+-   Click 'download data'
+
+This will put a .csv file containing the data in long format in your downloads folder. Now, to make our plot.
+
+First, load in the required packages:
+
+```{r libraries, message=FALSE, warning=FALSE}
+### Load in packages ####
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(gapminder)
+library(countrycode)
+```
+
+Now read in the downloaded .csv file you downloaded. The name will vary depending on the date of your download. After reading in the data, we are going to check it out, add a few elements of use for our plotting, and clean up.
+
+```{r data, message=FALSE}
+#read in .csv
+FAO <- read.csv("data/FAOSTAT_data_4-8-2022.csv", header = TRUE)
+
+#Subset data to remove the FAO-specific flags and columns we don't need
+FAOF <-
+  subset(FAO,
+         select = c('Area', 'Area.Code..ISO3.', 'Element', 'Year', 'Value'))
+
+#How many individual 'countries' are in this dataset?
+FAOF %>% summarise(Unique_Elements = n_distinct(Area))
+#So 104 countries have reported growing cassava (as of 2022) - impressive
+
+#Go from long to wide with tidyr for ease of plotting; change column name of 'Area' to 'Country'
+#Notice we use Element and Value in the spread argument
+FAOwide <- spread(FAOF, Element, Value)
+colnames(FAOwide)[1] <- "Country"
+colnames(FAOwide)[4] <- "Area"
+
+#Yield is expressed by FAO as hectograms per hectare (100g/ha), so must always convert to T/ha FAOwide$Yield <- as.numeric(as.character(FAOwide$Yield)) / 10000
+
+head(FAOwide) #Let's check it out
+```
+
+That looks fine - we have our countries, ISO3 code, year, and the three variables we were interested in. But we want one more thing - continent/region. This will help us to color code our points for easy reference later.
+
+This is why we got the ISO3 code - a standard code we can use for this purpose. We will use the countrycode package to do this. Let's add the World Bank 'continent' and 'region' designations using the countrycode package
+
+```{r countrycodes, echo=FALSE, message=FALSE}
+FAOwide$continent <-
+  countrycode(sourcevar = FAOwide[, "Area.Code..ISO3."],
+              origin = "iso3c",
+              destination = "continent")
+
+FAOwide$region <-
+  countrycode(sourcevar = FAOwide[, "Area.Code..ISO3."],
+              origin = "iso3c",
+              destination = "region")
+
+#We now have both continent and region label columns in our dataset #Let's also drop rows containing NA for Area - they are countries that didn't report any cassava for some periods
+
+FAOwide <- drop_na(FAOwide, Area)
+#That dropped over 100 rows. We should now have a complete dataset in wide format #Unfortunately, there are often a few quirks related to the ISO matching (the warning messages above should have tipped us off about the unmatched ISOs), so do a quick check.
+
+unique(FAOwide$Country) #Check country names
+apply(FAOwide, 2, function(x)
+  any(is.na(x))) #Check for the presence of NAs by column
+```
+
+So looks like we have a bit of cleaning to do. Here are a few step-by-step instructions to clear up our issues.
+
+```{r clean, message=FALSE}
+#FAO likes to report both 'China' and 'China, mainland'. Let's remove that redundancy.
+FAOwide <- FAOwide %>% filter(Country != "China")
+
+#China, mainland lacks both 'continent' and 'region' entries - we can fix that.
+FAOwide <-
+  FAOwide %>% mutate(continent = ifelse(Country == 'China, mainland', 'Asia', continent)) %>% mutate(region = ifelse(Country == 'China, mainland', 'East Asia & Pacific', region))
+
+#The entry for Sudan lacks both continent and region.
+FAOwide <-
+  FAOwide %>% mutate(continent = ifelse(Country == 'Sudan (former)', 'Africa', continent)) %>% mutate(region = ifelse(Country == 'Sudan (former)', 'Sub-Saharan Africa', region))
+
+#Reunion has missing region, but the accents have messed up the name, so let's use the ISO code
+FAOwide <-
+  FAOwide %>% mutate(region = ifelse(Area.Code..ISO3. == 'REU', 'Sub-Saharan Africa', region))
+
+#The messed up names for Réunion and Côte d'Ivoire are due to translation of the special characters. We'll just substitute the appropriate accents in.
+FAOwide <-
+  FAOwide %>% mutate(Country = ifelse(Area.Code..ISO3. == 'REU', 'Réunion', Country)) %>% mutate(Country = ifelse(Area.Code..ISO3. == 'CIV', "Côte d'Ivoire", Country))
+
+head(FAOwide)
+
+```
+
+Ok, our data looks clean. Time to work on generation of the plots themselves.
+
+## Plotly + Gapminder... so easy
+
+Using the Plotly library requires learning some new syntax if you're used to ggplot, but it's pretty straightforward. Plotly plays friendly with pipes, which simplifies things a lot. The Gapminder package, based on the famous Hans Rosling style, makes these styles of animations very simple. There are some other handy features on by default, including autoscaling of the plot size in browser.
+
+```{r plotly, message=FALSE, warning=FALSE}
+#Basic plot
+interactive_area_production <-
+  FAOwide %>% plot_ly(
+    x = ~ Production,
+    y = ~ Area,
+    size = ~ Yield,
+    color = ~ region,
+    frame = ~ Year,
+    text = ~ Country,
+    hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  )
+interactive_area_production
+```
+
+With the Plotly library, pipes can be used to customize the basic plot fairly easily. Adding elasticity to animation (and turn off redraw which looks janky), and log transform the y axis. Manually specifying axis labels, title, and legend title.
+
+```{r final_plot, message=FALSE, warning=FALSE}
+interactive_area_production <- interactive_area_production %>%
+  layout(yaxis = list(type = "log"), xaxis = list(type = "log")) %>% animation_opts(500, easing = "elastic", redraw = FALSE) %>% #the 500 calibrates time between steps in the animation: less=shorter
+  layout(
+    title = 'Cassava production 1961-2020',
+    plot_bgcolor = "rgba(0, 0, 0, 0)",
+    #This means transparent
+    xaxis = list(title = 'Production (tons)'),
+    yaxis = list(title = 'Area (hectares), log scaled'),
+    legend = list(
+      x = 0,
+      y = 1,
+      title = list(text = '<b> Region </b>'),
+      bgcolor = 'rgba(0,0,0,0)'
+    ),
+    margin = list(b = 200, t = 40, pad = 4)
+  ) %>%
+  layout(
+    annotations = list(
+      x = 1,
+      y = -0.275,
+      text = "Source: FAOSTAT (2022). Visualization: Erik Delaquis, Alliance of Bioversity International and CIAT",
+      showarrow = F,
+      xref = 'paper',
+      yref = 'paper',
+      xanchor = 'right',
+      yanchor = 'auto',
+      xshift = 0,
+      yshift = 0,
+      font = list(size = 10,
+                  color = "black")
+    )
+  )
+
+interactive_area_production
+```
+
+## Custom function for checking html widget file size
+
+```{r size_widget, message=FALSE, warning=FALSE}
+widget_file_size <- function(p) {
+  d <- tempdir()
+  withr::with_dir(d, htmlwidgets::saveWidget(p, "index.html"))
+  f <- file.path(d, "index.html")
+  mb <- round(file.info(f)$size / 1e6, 3)
+  message("File is: ", mb, " MB")
+}
+
+#Use the new function to check file size
+widget_file_size(interactive_area_production) #File size is 5.561 MB
+```
+
+Save the widget as html
+
+```{r save1, message=FALSE, warning=FALSE}
+htmlwidgets::saveWidget(interactive_area_production, "outputs/FAO_inter.html")
+```
+
+## Partial bundle function reduces size of html by only keeping the dependencies we need for our particular animation
+
+```{r reduced, message=FALSE, warning=FALSE}
+interactive_area_production_reduced <- partial_bundle(interactive_area_production) 
+
+widget_file_size(interactive_area_production_reduced) #File size is 2.11 MB
+
+```
+
+```{r save2, message=FALSE, warning=FALSE}
+
+#Save the reduced version under a modified name
+htmlwidgets::saveWidget(interactive_area_production_reduced, "outputs/FAO_inter_reduce.html")
+```

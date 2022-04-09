@@ -1,13 +1,11 @@
+######### Making animated and interactive graphs from FAOSTAT data ############
+
+### Load in packages ####
 library(tidyverse)
 library(ggplot2)
 library(plotly)
-library(gganimate)
-library(gifski)
-library(png)
+library(gapminder)
 library(countrycode)
-
-######### Making animated and interactive graphs from FAOSTAT data ############
-
 
 ### Data download and processing ####
 #As far as I can tell, FAO still stubbornly refuses to provide an API to allow us to pull data directly.
@@ -53,12 +51,10 @@ head(FAOwide)
 #We will use the [countrycode](https://cran.r-project.org/web/packages/countrycode/countrycode.pdf) package to do this.
 #Let's add the World Bank 'continent' and 'region' designations
 
-
 FAOwide$continent <-
   countrycode(sourcevar = FAOwide[, "Area.Code..ISO3."],
               origin = "iso3c",
               destination = "continent")
-
 
 FAOwide$region <-
   countrycode(sourcevar = FAOwide[, "Area.Code..ISO3."],
@@ -66,12 +62,17 @@ FAOwide$region <-
               destination = "region")
 
 #We now have both continent and region label columns in our dataset
-#Let's also drop rows containing NA - they are countries that didn't report any cassava for some periods
+#Let's also drop rows containing NA for Area - they are countries that didn't report any cassava for some periods
 
 FAOwide <- drop_na(FAOwide, Area)
 #That dropped over 100 rows. We should now have a complete dataset in wide format
-#Unfortunately, there are often a few quirks related to the ISO matching, so do a quick check.
-#A lot of this can be done in one call using sequential pipes, but I will do it step by step for clarity.
+#Unfortunately, there are often a few quirks related to the ISO matching (the warning messages above should have tipped us off about the unmatched ISOs), so do a quick check.
+
+unique(FAOwide$Country) #Check country names
+apply(FAOwide, 2, function(x) any(is.na(x))) #Check for the presence of NAs by column
+
+#So looks like we have a bit of cleaning to do.
+
 #FAO likes to report both 'China' and 'China, mainland'. Let's remove that redundancy.
 FAOwide <- FAOwide %>% filter(Country != "China")
 
@@ -106,9 +107,6 @@ FAOwide$region <- as.factor(FAOwide$region)
 #Plotly plays friendly with pipes, which simplifies things a lot.
 #The Gapminder package, based on the famous Hans Rosling style, makes these styles of animations very simple.
 #There are some other handy features on by default, including autoscaling of the plot size in browser.
-
-library(plotly)
-library(gapminder)
 
 #Basic plot
 interactive_area_production <- FAOwide %>%
@@ -157,7 +155,7 @@ interactive_area_production <-
   )
 interactive_area_production
 
-# Custom function for checking html widget file size
+## Custom function for checking html widget file size ####
 widget_file_size <- function(p) {
   d <- tempdir()
   withr::with_dir(d, htmlwidgets::saveWidget(p, "index.html"))
@@ -184,6 +182,10 @@ htmlwidgets::saveWidget(interactive_area_production_reduced, "outputs/FAO_inter_
 
 ####### If you don't want Plotly and prefer a GGplot solution #########################
 #This version also works perfectly fine, but is quite a bit more fiddly, especially with labels, titles, and Tooltips.
+
+library(gganimate)
+library(gifski)
+library(png)
 
 #### gganimate code for getting an animated GIF ####
 p <-

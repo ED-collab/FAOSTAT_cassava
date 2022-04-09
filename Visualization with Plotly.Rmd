@@ -150,7 +150,7 @@ interactive_area_production <- interactive_area_production %>%
     title = 'Cassava production 1961-2020',
     plot_bgcolor = "rgba(0, 0, 0, 0)",
     #This means transparent
-    xaxis = list(title = 'Production (tons)'),
+    xaxis = list(title = 'Production (tons), log scaled'),
     yaxis = list(title = 'Area (hectares), log scaled'),
     legend = list(
       x = 0,

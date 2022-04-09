@@ -95,10 +95,6 @@ FAOwide <- FAOwide %>%
   mutate(Country = ifelse(Area.Code..ISO3. == 'REU', 'Réunion', Country)) %>%
   mutate(Country = ifelse(Area.Code..ISO3. == 'CIV', "Côte d'Ivoire", Country))
 
-#Convert to factors since that's what they really are
-FAOwide$continent <- as.factor(FAOwide$continent)
-FAOwide$region <- as.factor(FAOwide$region)
-
 
 
 
@@ -132,7 +128,7 @@ interactive_area_production <-
   layout(
     title = 'Cassava production 1961-2020',
     plot_bgcolor = "rgba(0, 0, 0, 0)", #This means transparent
-    xaxis = list(title = 'Production (tons)'),
+    xaxis = list(title = 'Production (tons), log scaled'),
     yaxis = list(title = 'Area (hectares), log scaled'),
     legend = list(x = 0, y = 1, title = list(text = '<b> Region </b>'), bgcolor = 'rgba(0,0,0,0)'),
     margin = list(b = 200, t = 40, pad = 4)

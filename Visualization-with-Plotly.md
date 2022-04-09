@@ -229,6 +229,13 @@ interactive_area_production
 
 ![](Visualization-with-Plotly_files/figure-gfm/plotly-1.png)<!-- -->
 
+This generates an interactive HTML object with many useful features for
+the users to interact with, including ability to play through or scroll 
+by year, filter by clicking on the legend, show additional data on mouse 
+hover, and download as .png at any point.
+
+Interactive html versions are available in the output folder.
+
 With the Plotly library, pipes can be used to customize the basic plot
 fairly easily. Adding elasticity to animation (and turn off redraw which
 looks janky), and log transform the y axis. Manually specifying axis

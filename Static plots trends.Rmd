@@ -78,6 +78,9 @@ FAOwide <- FAOwide %>%
 FAOwide <- FAOwide %>%
   mutate(Country = ifelse(Area.Code..ISO3. == 'REU', 'Réunion', Country)) %>%
   mutate(Country = ifelse(Area.Code..ISO3. == 'CIV', "Côte d'Ivoire", Country))
+
+#Finally, because we are using Lao People's Democratic Republic a lot, let's shorten the name to Lao PDR
+FAOwide<- FAOwide %>% mutate(Country=recode(Country, "Lao People's Democratic Republic" = "Lao PDR"))
 ```
 
 Now we can make visualizations. Let's start with an area graph for GMS
@@ -90,7 +93,7 @@ GMS$Country <-
     GMS$Country,
     levels = c(
       "Myanmar",
-      "Lao People's Democratic Republic",
+      "Lao PDR",
       "Cambodia",
       "Viet Nam",
       "Thailand"
@@ -153,6 +156,7 @@ GMS %>%
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
+#Manually specifying 10 year increments
 ```{r}
 GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 | Year==2010 | Year==2020) %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
@@ -164,33 +168,72 @@ GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
-Let's try using 5 year increment averages to smooth things out
+Let's try automatically slicing 5 year increment averages to smooth things out
 ```{r 5_year_increments, warning=FALSE, message=FALSE}
 GMS %>% group_by(Country, Year=ceiling(Year/5)*5) %>% 
   summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
             Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
   geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  geom_path(arrow = arrow(length = unit(0.3, "cm")), aes(colour=Country), size=1, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic()
 ```
 
 Feeling nasty. Why don't we do it for the whole planet and see where we end up? This time we'll divide into 5-year increments by region.
-
 ```{r world_paths, warning=FALSE, message=FALSE}
-FAOwide %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
+FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
   summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
             Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
   ggplot(aes(x=Area, y=Production, group=region)) + 
-  geom_point(aes(colour=region), size=0.7)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=region), size=1.1) +
+  geom_point(aes(colour=region, size=Yield), alpha=0.7)+
+  scale_size_continuous(range = c(1,8)) +
+  geom_path(arrow = arrow(type="closed", length = unit(0.4, "cm")), aes(colour=region), size=1.1, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
-  geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(Area, Production, label=Year))+
   theme_classic() +
   theme() +
-  labs(x="Area (ha)", y="Production (t)")
+  labs(x="Area (ha)", y="Production (t)", colour="Region") +
+  geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
+```
+
+What if we want to vary the line (geom_path) width instead?
+```{r}
+FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
+  summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
+            Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
+  ggplot(aes(x=Area, y=Production, group=region)) +
+  scale_size_continuous(range = c(1,8)) +
+  geom_path(aes(colour=region, size=Yield), alpha=.6, lineend = "round") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma) +
+  theme_classic() +
+  theme() +
+  labs(x="Area (ha)", y="Production (t)", colour="Region") +
+  geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
+```
+
+
+
+We can animate the paths using gganimate -this will give us a .gif that can be inserted into powerpoints, etc.
+```{r}
+library(gganimate)
+GMS %>% 
+  ggplot(aes(x=Area, y=Production, group=Country)) + 
+  geom_point(aes(colour=Country), size=1)+
+  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma) +
+  theme_classic()+
+  transition_reveal(Year)
+
+```
+We can even go into 3 dimensions by using Plotly and adding Yield
+
+```{r}
+library(plotly)
+plot_ly(GMS, x = ~Area, y = ~Production, z = ~Yield) %>%
+  add_paths(color = ~Country)
 ```
 

@@ -9,6 +9,8 @@ library(countrycode)
 library(ggpubr)
 ```
 
+First, we load the required data (see the basic script for origins)
+
 ``` r
 #Copy the steps from the PLotly visualization file, but with a few tweaks
 #The name will vary depending on the date of your download
@@ -205,67 +207,11 @@ ggplot(GMSL , aes(x = Year, y = value, group = Country)) +
 
 ![](Static-plots-trends_files/figure-gfm/lines-1.png)<!-- -->
 
+We can also plot the progression over time, using paths
+
 ``` r
 library(tidyquant)
-```
 
-    ## Warning: package 'tidyquant' was built under R version 4.0.5
-
-    ## Loading required package: lubridate
-
-    ## Warning: package 'lubridate' was built under R version 4.0.5
-
-    ## 
-    ## Attaching package: 'lubridate'
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     date, intersect, setdiff, union
-
-    ## Loading required package: PerformanceAnalytics
-
-    ## Warning: package 'PerformanceAnalytics' was built under R version 4.0.5
-
-    ## Loading required package: xts
-
-    ## Loading required package: zoo
-
-    ## Warning: package 'zoo' was built under R version 4.0.5
-
-    ## 
-    ## Attaching package: 'zoo'
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     as.Date, as.Date.numeric
-
-    ## 
-    ## Attaching package: 'xts'
-
-    ## The following objects are masked from 'package:dplyr':
-    ## 
-    ##     first, last
-
-    ## 
-    ## Attaching package: 'PerformanceAnalytics'
-
-    ## The following object is masked from 'package:graphics':
-    ## 
-    ##     legend
-
-    ## Loading required package: quantmod
-
-    ## Loading required package: TTR
-
-    ## Registered S3 method overwritten by 'quantmod':
-    ##   method            from
-    ##   as.zoo.data.frame zoo
-
-    ## == Need to Learn tidyquant? ====================================================
-    ## Business Science offers a 1-hour course - Learning Lab #9: Performance Analysis & Portfolio Optimization with tidyquant!
-    ## </> Learn more at: https://university.business-science.io/p/learning-labs-pro </>
-
-``` r
 GMS %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
   geom_point(aes(colour=Country), size=1)+
@@ -275,13 +221,13 @@ GMS %>%
   theme_classic()
 ```
 
-![](Static-plots-trends_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
+![](Static-plots-trends_files/figure-gfm/path-1.png)<!-- -->
 
 ``` r
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
-\#Manually specifying 10 year increments
+Manually specifying 10 year increments
 
 ``` r
 GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 | Year==2010 | Year==2020) %>% 
@@ -293,7 +239,7 @@ GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 
   theme_classic()
 ```
 
-![](Static-plots-trends_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+![](Static-plots-trends_files/figure-gfm/paths10-1.png)<!-- -->
 
 ``` r
  # geom_ma(ma_fun = SMA, n=3)
@@ -315,6 +261,28 @@ GMS %>% group_by(Country, Year=ceiling(Year/5)*5) %>%
 ```
 
 ![](Static-plots-trends_files/figure-gfm/5_year_increments-1.png)<!-- -->
+
+We can animate the paths using gganimate -this will give us a .gif that
+can be inserted into powerpoints, etc.
+
+``` r
+library(gganimate)
+```
+
+    ## Warning: package 'gganimate' was built under R version 4.0.5
+
+``` r
+GMS %>% 
+  ggplot(aes(x=Area, y=Production, group=Country)) + 
+  geom_point(aes(colour=Country), size=1)+
+  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma) +
+  theme_classic()+
+  transition_reveal(Year)
+```
+
+![](Static-plots-trends_files/figure-gfm/unnamed-chunk-1-1.gif)<!-- -->
 
 Feeling nasty. Why don’t we do it for the whole planet and see where we
 end up? This time we’ll divide into 5-year increments by region.
@@ -354,57 +322,14 @@ FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, 
   geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
 ```
 
-    ## `summarise()` has grouped output by 'region'. You can override using the `.groups` argument.
+![](Static-plots-trends_files/figure-gfm/width-1.png)<!-- -->
 
-![](Static-plots-trends_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
-
-We can animate the paths using gganimate -this will give us a .gif that
-can be inserted into powerpoints, etc.
-
-``` r
-library(gganimate)
-```
-
-    ## Warning: package 'gganimate' was built under R version 4.0.5
-
-``` r
-GMS %>% 
-  ggplot(aes(x=Area, y=Production, group=Country)) + 
-  geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
-  scale_y_continuous(labels = scales::comma) +
-  scale_x_continuous(labels = scales::comma) +
-  theme_classic()+
-  transition_reveal(Year)
-```
-
-![](Static-plots-trends_files/figure-gfm/unnamed-chunk-4-1.gif)<!-- -->
 We can even go into 3 dimensions by using Plotly and adding Yield
 
 ``` r
 library(plotly)
-```
-
-    ## Warning: package 'plotly' was built under R version 4.0.5
-
-    ## 
-    ## Attaching package: 'plotly'
-
-    ## The following object is masked from 'package:ggplot2':
-    ## 
-    ##     last_plot
-
-    ## The following object is masked from 'package:stats':
-    ## 
-    ##     filter
-
-    ## The following object is masked from 'package:graphics':
-    ## 
-    ##     layout
-
-``` r
 plot_ly(GMS, x = ~Area, y = ~Production, z = ~Yield) %>%
   add_paths(color = ~Country)
 ```
 
-![](Static-plots-trends_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](Static-plots-trends_files/figure-gfm/3D-1.png)<!-- -->

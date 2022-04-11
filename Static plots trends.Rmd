@@ -2,7 +2,7 @@
 title: "Line graphs and other explorations"
 author: "Erik Delaquis"
 date: "4/11/2022"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -15,6 +15,7 @@ library(countrycode)
 library(ggpubr)
 ```
 
+First, we load the required data (see the basic script for origins)
 ```{r data_load&clean, message=FALSE, warning=FALSE}
 #Copy the steps from the PLotly visualization file, but with a few tweaks
 #The name will vary depending on the date of your download
@@ -142,8 +143,9 @@ ggplot(GMSL , aes(x = Year, y = value, group = Country)) +
         panel.border = element_blank())
 ```
 
+We can also plot the progression over time, using paths
 
-```{r}
+```{r path, message=FALSE, warning=FALSE}
 library(tidyquant)
 
 GMS %>% 
@@ -156,8 +158,8 @@ GMS %>%
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
-#Manually specifying 10 year increments
-```{r}
+Manually specifying 10 year increments
+```{r paths10, message=FALSE, warning=FALSE}
 GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 | Year==2010 | Year==2020) %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
   geom_point(aes(colour=Country), size=1)+
@@ -181,6 +183,20 @@ GMS %>% group_by(Country, Year=ceiling(Year/5)*5) %>%
   theme_classic()
 ```
 
+We can animate the paths using gganimate -this will give us a .gif that can be inserted into powerpoints, etc.
+```{r}
+library(gganimate)
+GMS %>% 
+  ggplot(aes(x=Area, y=Production, group=Country)) + 
+  geom_point(aes(colour=Country), size=1)+
+  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma) +
+  theme_classic()+
+  transition_reveal(Year)
+
+```
+
 Feeling nasty. Why don't we do it for the whole planet and see where we end up? This time we'll divide into 5-year increments by region.
 ```{r world_paths, warning=FALSE, message=FALSE}
 FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
@@ -199,7 +215,7 @@ FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, 
 ```
 
 What if we want to vary the line (geom_path) width instead?
-```{r}
+```{r width, message=FALSE, warning=FALSE}
 FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
   summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
             Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
@@ -214,24 +230,8 @@ FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, 
   geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
 ```
 
-
-
-We can animate the paths using gganimate -this will give us a .gif that can be inserted into powerpoints, etc.
-```{r}
-library(gganimate)
-GMS %>% 
-  ggplot(aes(x=Area, y=Production, group=Country)) + 
-  geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
-  scale_y_continuous(labels = scales::comma) +
-  scale_x_continuous(labels = scales::comma) +
-  theme_classic()+
-  transition_reveal(Year)
-
-```
 We can even go into 3 dimensions by using Plotly and adding Yield
-
-```{r}
+```{r 3D, message=FALSE, warning=FALSE}
 library(plotly)
 plot_ly(GMS, x = ~Area, y = ~Production, z = ~Yield) %>%
   add_paths(color = ~Country)

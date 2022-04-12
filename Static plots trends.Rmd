@@ -132,7 +132,7 @@ Axis_labeller <- function(variable,value){
 }
 
 ggplot(GMSL , aes(x = Year, y = value, group = Country)) +
-  geom_line(aes(linetype = Country), size=1, alpha=0.7) +
+  geom_line(aes(linetype = Country, colour=Country), size=1, alpha=0.7) +
   facet_grid(rows = "element",
              scales = "free",
              switch = 'y',
@@ -142,7 +142,8 @@ ggplot(GMSL , aes(x = Year, y = value, group = Country)) +
   theme(axis.title.y = element_blank(), 
         strip.placement = "outside",
         strip.background = element_blank(),
-        panel.border = element_blank())
+        panel.border = element_blank(),
+        strip.text = element_text(size=12))
 ```
 
 We can also plot the progression over time, using paths
@@ -157,7 +158,7 @@ GMS %>%
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic()+
-  labs(title="Annual data",x="Area (ha)", y="Production (t)", colour="Country")
+  labs(title="Annual data (1961-2020)",x="Area (ha)", y="Production (t)", colour="Country")
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
@@ -172,7 +173,7 @@ GMS %>% group_by(Country, Year=ceiling(Year/10)*10) %>%
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic()+
-  labs(title="10 year averages", x="Area (ha)", y="Production (t)", colour="Country")
+  labs(title="10 year averages (1961-2020)", x="Area (ha)", y="Production (t)", colour="Country")
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
@@ -182,12 +183,12 @@ GMS %>% group_by(Country, Year=ceiling(Year/5)*5) %>%
   summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
             Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
-  geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(length = unit(0.3, "cm")), aes(colour=Country), size=1, alpha=.6) +
+  geom_point(aes(colour=Country))+
+  geom_path(arrow = arrow(length = unit(0.3, "cm")), aes(colour=Country), size=2, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic()+
-  labs(title="5 year averages",x="Area (ha)", y="Production (t)", colour="Country")
+  labs(title="5 year averages (1961-2020)",x="Area (ha)", y="Production (t)", colour="Country")
 ```
 
 We can animate the paths using gganimate -this will give us a .gif that can be inserted into powerpoints, etc.
@@ -213,12 +214,12 @@ FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, 
   ggplot(aes(x=Area, y=Production, group=region)) + 
   geom_point(aes(colour=region, size=Yield), alpha=0.7)+
   scale_size_continuous(range = c(1,8)) +
-  geom_path(arrow = arrow(type="closed", length = unit(0.4, "cm")), aes(colour=region), size=1.1, alpha=.6) +
+  geom_path(arrow = arrow(type="closed", length = unit(0.4, "cm")), aes(colour=region), size=1.1, alpha=.8) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic() +
   theme() +
-  labs(title="5 year averages",x="Area (ha)", y="Production (t)", colour="Region") +
+  labs(title="5 year averages (1961-2020)",x="Area (ha)", y="Production (t)", colour="Region") +
   geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
 ```
 
@@ -230,7 +231,7 @@ GMS5<-FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(re
             Area=mean(Area), Production=mean(Production), Yield=mean(Yield))
   GMS5 %>% ggplot(aes(x=Area, y=Production, group=region)) +
   scale_size_continuous(range = c(1,6)) +
-  geom_path(aes(colour=region, size=Yield), alpha=.6, lineend = "round") +
+  geom_path(aes(colour=region, size=Yield),  lineend = "round") +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic() +
@@ -268,25 +269,7 @@ treemap(FAOwide,
             )
 ```
 
-```{r waffle, message=FALSE, warning=FALSE}
-ggplot(FAOwide, aes(x = x, y = y, fill = region)) + 
-        geom_tile(color = "black", size = 0.3) +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0), trans = 'reverse') +
-        scale_fill_brewer(palette = "Set3") +
-        labs(title="Waffle Chart", subtitle="'Class' of vehicles",
-             caption="Source: mpg") + 
-        theme(panel.border = element_rect(size = 2),
-              plot.title = element_text(size = rel(1.2)),
-              axis.text = element_blank(),
-              axis.title = element_blank(),
-              axis.ticks = element_blank(),
-              legend.title = element_blank(),
-              legend.position = "right")
-```
-
-
-Our data is sort of nested - we have world, regions, and countries. This structure plays nice with visualizations like treemaps or circle packing.
+Our data is already mostly nested - we have world, regions, and countries. This structure plays nice with certain visualizations like treemaps or circle packing.
 Note that we are adding data columns to the FAOwide dataset we created. Since we're not changing the columns we created previously, this shouldn't cause us any problems if we want to go back and rerun earlier code.
 ```{r nested, warning=FALSE, message=FALSE}
 
@@ -297,8 +280,7 @@ FAOwide$World<-"World"
 library(circlepackeR)         
 #devtools::install_github("jeromefroe/circlepackeR") # If needed
 
-
-# Change the format. This use the data.tree library. This library needs a column that looks like root/group/subgroup/..., so I build it
+# Change the format. This uses the data.tree library. This library needs a column that looks like root/group/subgroup/..., so let's create that.
 library(data.tree)
 FAOwide$pathString <- paste("World", FAOwide$continent, FAOwide$region, FAOwide$Country, sep = "/")
 Area_ <- as.Node(FAOwide)
@@ -306,7 +288,7 @@ Area_ <- as.Node(FAOwide)
 # Make the plot
 circlepackeR(Area_, size = "Area")
 
-# You can custom the minimum and maximum value of the color range.
+# You can customize the minimum and maximum values of the color range.
 p <- circlepackeR(Area_, size = "Area", color_min = "hsl(56,80%,80%)", color_max = "hsl(341,30%,40%)")
 
 p
@@ -314,6 +296,4 @@ p
 # library(htmlwidgets)
 # saveWidget(p, file=paste0( getwd(), "/HtmlWidget/circular_packing_circlepackeR2.html"))
 ```
-
-
 

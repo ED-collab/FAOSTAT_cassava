@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(countrycode)
 library(ggpubr)
+library(ggrepel)
 ```
 
 First, we load the required data (see the basic script for origins)
@@ -102,11 +103,12 @@ GMS$Country <-
   ) #manually reorder smallest to biggest
 
 ggplot(data = GMS, aes(x = Year, y = Area, group = Country)) +
-  geom_area(aes(color = Country, fill = Country)) +
+  geom_area(aes(fill = Country)) +
   scale_y_continuous(labels = scales::comma) +
   labs(y = "Area (ha)") +
   theme_pubr() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+  scale_fill_manual(values = c("gray10","gray30","gray50","gray70","gray90"))
 ```
 
 If we want to make line graphs of the three measures, in my opinion the easiest method is by pivoting back to long format and making use of the faceting function of ggplot2.
@@ -130,7 +132,7 @@ Axis_labeller <- function(variable,value){
 }
 
 ggplot(GMSL , aes(x = Year, y = value, group = Country)) +
-  geom_line(aes(colour = Country), size=1, alpha=0.7) +
+  geom_line(aes(linetype = Country), size=1, alpha=0.7) +
   facet_grid(rows = "element",
              scales = "free",
              switch = 'y',
@@ -154,19 +156,23 @@ GMS %>%
   geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
-  theme_classic()
+  theme_classic()+
+  labs(title="Annual data",x="Area (ha)", y="Production (t)", colour="Country")
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
-Manually specifying 10 year increments
+Specifying 10 year increments - each point is a 10-year average
 ```{r paths10, message=FALSE, warning=FALSE}
-GMS %>% filter(Year==1960 | Year==1970 | Year==1980 | Year==1990 | Year == 2000 | Year==2010 | Year==2020) %>% 
+GMS %>% group_by(Country, Year=ceiling(Year/10)*10) %>% 
+  summarize(Year=paste(first(Year)-10, first(Year), sep='-'),
+            Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
   geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country), size=1, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
-  theme_classic()
+  theme_classic()+
+  labs(title="10 year averages", x="Area (ha)", y="Production (t)", colour="Country")
  # geom_ma(ma_fun = SMA, n=3)
 ```
 
@@ -180,7 +186,8 @@ GMS %>% group_by(Country, Year=ceiling(Year/5)*5) %>%
   geom_path(arrow = arrow(length = unit(0.3, "cm")), aes(colour=Country), size=1, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
-  theme_classic()
+  theme_classic()+
+  labs(title="5 year averages",x="Area (ha)", y="Production (t)", colour="Country")
 ```
 
 We can animate the paths using gganimate -this will give us a .gif that can be inserted into powerpoints, etc.
@@ -189,10 +196,11 @@ library(gganimate)
 GMS %>% 
   ggplot(aes(x=Area, y=Production, group=Country)) + 
   geom_point(aes(colour=Country), size=1)+
-  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country)) +
+  geom_path(arrow = arrow(type="closed", length = unit(0.3, "cm")), aes(colour=Country), size=1, alpha=.6) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic()+
+  labs(title="Cassava area changes, 1961-2020",x="Area (ha)", y="Production (t)", colour="Country")+
   transition_reveal(Year)
 
 ```
@@ -210,24 +218,25 @@ FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, 
   scale_x_continuous(labels = scales::comma) +
   theme_classic() +
   theme() +
-  labs(x="Area (ha)", y="Production (t)", colour="Region") +
+  labs(title="5 year averages",x="Area (ha)", y="Production (t)", colour="Region") +
   geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
 ```
 
 What if we want to vary the line (geom_path) width instead?
 ```{r width, message=FALSE, warning=FALSE}
-FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
+
+GMS5<-FAOwide %>% filter(region != "Middle East & North Africa") %>% group_by(region, Year=ceiling(Year/5)*5) %>% 
   summarize(Year=paste(first(Year)-5, first(Year), sep='-'),
-            Area=mean(Area), Production=mean(Production), Yield=mean(Yield)) %>% 
-  ggplot(aes(x=Area, y=Production, group=region)) +
-  scale_size_continuous(range = c(1,8)) +
+            Area=mean(Area), Production=mean(Production), Yield=mean(Yield))
+  GMS5 %>% ggplot(aes(x=Area, y=Production, group=region)) +
+  scale_size_continuous(range = c(1,6)) +
   geom_path(aes(colour=region, size=Yield), alpha=.6, lineend = "round") +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(labels = scales::comma) +
   theme_classic() +
   theme() +
-  labs(x="Area (ha)", y="Production (t)", colour="Region") +
-  geom_text(data = subset(FAOwide, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year))
+  labs(title="5 year averages",x="Area (ha)", y="Production (t)", colour="Region") +
+  geom_text_repel(data = subset(GMS5, Year=="1960-1965" | Year=="2015-2020"), aes(label=Year), size=3)
 ```
 
 We can even go into 3 dimensions by using Plotly and adding Yield
@@ -236,4 +245,75 @@ library(plotly)
 plot_ly(GMS, x = ~Area, y = ~Production, z = ~Yield) %>%
   add_paths(color = ~Country)
 ```
+
+This type of data can also be used for making a hierarchical treemap
+```{r treemap, warning=FALSE, message=FALSE}
+# library
+library(treemap)
+ 
+# treemap for Area
+treemap(FAOwide,
+            index=c("region","Country"),
+            vSize="Area",
+            type="index"
+            )
+
+# Again for production
+treemap(FAOwide,
+            index=c("region","Country"),
+            vSize="Production",
+            type="index",
+        border.col=c("black","white"),             # Color of borders of groups, of subgroups, of subsubgroups ....
+    border.lwds=c(3,2)                         # Width of colors
+            )
+```
+
+```{r waffle, message=FALSE, warning=FALSE}
+ggplot(FAOwide, aes(x = x, y = y, fill = region)) + 
+        geom_tile(color = "black", size = 0.3) +
+        scale_x_continuous(expand = c(0, 0)) +
+        scale_y_continuous(expand = c(0, 0), trans = 'reverse') +
+        scale_fill_brewer(palette = "Set3") +
+        labs(title="Waffle Chart", subtitle="'Class' of vehicles",
+             caption="Source: mpg") + 
+        theme(panel.border = element_rect(size = 2),
+              plot.title = element_text(size = rel(1.2)),
+              axis.text = element_blank(),
+              axis.title = element_blank(),
+              axis.ticks = element_blank(),
+              legend.title = element_blank(),
+              legend.position = "right")
+```
+
+
+Our data is sort of nested - we have world, regions, and countries. This structure plays nice with visualizations like treemaps or circle packing.
+Note that we are adding data columns to the FAOwide dataset we created. Since we're not changing the columns we created previously, this shouldn't cause us any problems if we want to go back and rerun earlier code.
+```{r nested, warning=FALSE, message=FALSE}
+
+#Add a column giving the top level 'World'
+FAOwide$World<-"World"
+
+# Circlepacker package
+library(circlepackeR)         
+#devtools::install_github("jeromefroe/circlepackeR") # If needed
+
+
+# Change the format. This use the data.tree library. This library needs a column that looks like root/group/subgroup/..., so I build it
+library(data.tree)
+FAOwide$pathString <- paste("World", FAOwide$continent, FAOwide$region, FAOwide$Country, sep = "/")
+Area_ <- as.Node(FAOwide)
+
+# Make the plot
+circlepackeR(Area_, size = "Area")
+
+# You can custom the minimum and maximum value of the color range.
+p <- circlepackeR(Area_, size = "Area", color_min = "hsl(56,80%,80%)", color_max = "hsl(341,30%,40%)")
+
+p
+# save the widget
+# library(htmlwidgets)
+# saveWidget(p, file=paste0( getwd(), "/HtmlWidget/circular_packing_circlepackeR2.html"))
+```
+
+
 

@@ -114,18 +114,18 @@ GMS$Country <-
 
 CTV <- GMS %>% filter(Area.Code..ISO3. %in% c('KHM', 'VNM', 'THA'))
 
-ggplot(data = GMS, aes(x = Year, y = Area, group = Country)) +
+ggplot(data = GMS, aes(x = Year, y = Area/1000000, group = Country)) +
   geom_area(aes(fill = Country)) +
   scale_y_continuous(labels = scales::comma) +
-  labs(y = "Area (ha)") +
+  labs(y = "Area (M ha)") +
   theme_pubr() +
   theme(legend.position = "bottom") +
   scale_fill_manual(values = myColors, limits=force)
 
 ### Facets ####
 #New strip/facet labels
-Axis_labs0 <- c(`Area` = "Area (ha)",
-               `Production` = "Production (t)")
+Axis_labs0 <- c(`Area` = "Area (M ha)",
+               `Production` = "Production (M t)")
 
 #function to apply the labels to the plot - we will call it in the 'labeller'
 Axis_labeller0 <- function(variable,value){
@@ -133,7 +133,7 @@ Axis_labeller0 <- function(variable,value){
 }
 
 GMSL %>% filter(element %in% c('Area', 'Production')) %>% 
-ggplot(aes(x = Year, y = value, group = Country)) +
+ggplot(aes(x = Year, y = value/1000000, group = Country)) +
   geom_area(aes(fill=Country), size=1, alpha=0.7) +
   facet_grid(rows = "element",
              scales = "free",
@@ -164,6 +164,17 @@ CTVL <- CTV %>% pivot_longer(
   names_to = "element",
   values_to = "value"
 )
+CTVL$Country <-
+  factor(
+    CTVL$Country,
+    levels = c(
+      "Myanmar",
+      "Lao PDR",
+      "Cambodia",
+      "Thailand",
+      "Vietnam"
+    )
+  ) 
 
 #New strip/facet labels
 Axis_labs <- c(`Area` = "Area (ha)",
@@ -239,6 +250,28 @@ CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Co
   scale_color_manual(values = myColors, limits=force)+
   scale_linetype_manual(values = myLines, limits=force)
 
+### CTV B&W points and smooth ####
+
+CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Country)) +
+  geom_point(aes(shape = Country, colour=Country), size=1, alpha=0.85) +
+  facet_grid(rows = "element",
+             scales = "free",
+             switch = 'y',
+             labeller = as_labeller(Axis_labellery)) + #Facet the grid by the new group column we created containing our 3 numeric variables
+  scale_y_continuous(labels = scales::comma) + #Format y scale using thousands separators
+  theme_pubr() + #From ggpubr, with sensible publication defaults
+  theme(axis.title.y = element_blank(), 
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.border = element_blank(),
+        strip.text = element_text(size=11),
+        legend.title = element_blank(),
+        legend.position = "right") +
+  scale_color_manual(values = myColors, limits=force)+
+  scale_shape_manual(values = myShapes, limits=force)+
+  geom_smooth(method=loess, aes(group=Country, linetype=Country, colour=Country), se=F)+
+  scale_linetype_manual(values = myLines, limits=force)
+
 ## Releases over time - scatter ####
 RelImran <- read.csv("D:/Dropbox/Business case analysis/TH_VN_var_releases.csv", header = TRUE)
 
@@ -300,6 +333,8 @@ Axis_labellerRs <- function(variable,value){
   return(Axis_labsRs[value])
 }
 
+
+
 RElL %>% filter(element %in% c('Yield', 'Starch.content') & !is.na(Year)) %>%
   ggplot(aes(x = Year, y = value, group = Country, color=Country, shape = Country)) +
   facet_grid(rows = "element",
@@ -319,14 +354,45 @@ RElL %>% filter(element %in% c('Yield', 'Starch.content') & !is.na(Year)) %>%
   scale_color_manual(values = myColors, limits=force)
 
 
+### Yield, Starch Yield, Starch Content ####
+
+#New strip/facet labels
+Axis_labsRs <- c(`Starch.content` = "Starch content (%)",
+                 `Starch.yield` = "Starch yield (t ha⁻¹)",
+                 `Yield` = "Root yield (t ha⁻¹)")
+
+#function to apply the labels to the plot - we will call it in the 'labeller'
+Axis_labellerRs <- function(variable,value){
+  return(Axis_labsRs[value])
+}
+
+RElL %>% filter(element %in% c('Yield', 'Starch.content', 'Starch.yield') & !is.na(Year)) %>%
+  ggplot(aes(x = Year, y = value, group = Country, color=Country, shape = Country)) +
+  facet_grid(rows = "element",
+             scales = "free",
+             switch = 'y',
+             labeller = as_labeller(Axis_labellerRs))+
+  geom_point(size=2) +
+  geom_smooth(method=lm, se=FALSE) +
+  theme_pubr() +
+  theme(axis.title.y = element_blank(), 
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.border = element_blank(),
+        strip.text = element_text(size=11),
+        legend.title = element_blank(),
+        legend.position = "right")+
+  scale_color_manual(values = myColors, limits=force)+
+  stat_cor()+
+  stat_regline_equation(label.x = 1988)
+
 ## Release yield & starch content added to FAOSTAT yield ####
 Axis_labellery <- function(variable,value){
   return(Axis_labsy[value])
 }
 
-
 panel1<-CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Country)) +
-  geom_line(aes(linetype = Country, colour=Country), size=1, alpha=0.85) +
+  geom_line(aes(linetype = Country, colour=Country), size=1) +
   facet_grid(rows = "element",
              scales = "free",
              switch = 'y',
@@ -345,7 +411,36 @@ panel1<-CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, gr
   scale_color_manual(values = myColors, limits=force)+
   scale_linetype_manual(values = myLines, limits=force)+
   scale_x_continuous(limits = c(1961,2021), labels = NULL, breaks = NULL) +
+  scale_y_continuous(breaks=seq(0,30,5)) + 
   labs(x = NULL)
+
+
+
+panel1b <-CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Country)) +
+  geom_point(aes(shape = Country, colour=Country), size=1) +
+  facet_grid(rows = "element",
+             scales = "free",
+             switch = 'y',
+             labeller = as_labeller(Axis_labellery)) + #Facet the grid by the new group column we created containing our 3 numeric variables
+  scale_y_continuous(labels = scales::comma) + #Format y scale using thousands separators
+  theme_pubr() + #From ggpubr, with sensible publication defaults
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.border = element_blank(),
+        strip.text = element_text(size=11),
+        legend.title = element_blank(),
+        legend.position = "right") +
+  scale_color_manual(values = myColors, limits=force)+
+  scale_shape_manual(values = myShapes, limits=force)+
+  geom_smooth(method=loess, aes(group=Country, linetype=Country, colour=Country), se=F)+
+  scale_linetype_manual(values = myLines, limits=force)+
+  scale_x_continuous(limits = c(1961,2021), labels = NULL, breaks = NULL) +
+  scale_y_continuous(breaks=seq(0,30,5)) + 
+  labs(x = NULL)
+
 
 Axis_labsRs <- c(`Starch.content` = "Starch content (%)",
                  `Yield` = "Yield (t ha⁻¹)")
@@ -362,7 +457,7 @@ panel2<-RElL %>% filter(element %in% c('Yield', 'Starch.content') & !is.na(Year)
              switch = 'y',
              labeller = as_labeller(Axis_labellerRs))+
   geom_point(size=2) +
-  geom_smooth(method=lm, se=FALSE, show.legend = FALSE) +
+  geom_smooth(method=lm, aes(group=Country, linetype=Country, colour=Country), se=FALSE, show.legend = FALSE) +
   theme_pubr() +
   theme(axis.title.y = element_blank(), 
         strip.placement = "outside",
@@ -372,10 +467,81 @@ panel2<-RElL %>% filter(element %in% c('Yield', 'Starch.content') & !is.na(Year)
         legend.title = element_blank(),
         legend.position = "right")+
   scale_color_manual(values = myColors, limits=force)+
-  scale_x_continuous(limits = c(1961,2021))
+  scale_x_continuous(limits = c(1961,2021))+
+  scale_shape_manual(values = myShapes, limits=force)
 
 
 plot_grid(panel1, panel2,  rel_heights = c(2,3), nrow = 2)
+
+plot_grid(panel1b, panel2,  rel_heights = c(2,3), nrow = 2)
+
+## Release yield, starch yield, starch content, FAOSTAT yield ####
+
+Axis_labsy <- c(`Yield` = "Root yield (t ha⁻¹)")
+Axis_labellery <- function(variable,value){
+  return(Axis_labsy[value])
+}
+
+panel1b <-CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Country)) +
+  geom_point(aes(shape = Country, colour=Country), size=1.5) +
+  facet_grid(rows = "element",
+             scales = "free",
+             switch = 'y',
+             labeller = as_labeller(Axis_labellery)) + #Facet the grid by the new group column we created containing our 3 numeric variables
+  scale_y_continuous(labels = scales::comma) + #Format y scale using thousands separators
+  theme_pubr() + #From ggpubr, with sensible publication defaults
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.border = element_blank(),
+        strip.text = element_text(size=11),
+        legend.title = element_blank(),
+        legend.position = "right") +
+  scale_color_manual(values = myColors, limits=force)+
+  scale_shape_manual(values = myShapes, limits=force)+
+  geom_smooth(method=loess, aes(group=Country, linetype=Country, colour=Country), se=F)+
+  scale_linetype_manual(values = myLines, limits=force)+
+  scale_x_continuous(limits = c(1961,2018), labels = NULL, breaks = NULL) +
+  scale_y_continuous(breaks=seq(0,30,5)) + 
+  labs(x = NULL)
+
+#Now panel 2
+
+Axis_labsRs <- c(`Starch.content` = "Starch content (%)",
+                 `Starch.yield` = "Starch yield (t ha⁻¹)",
+                 `Yield` = "Root yield (t ha⁻¹)")
+
+#function to apply the labels to the plot - we will call it in the 'labeller'
+Axis_labellerRs <- function(variable,value){
+  return(Axis_labsRs[value])
+}
+
+panel2<-RElL %>% filter(element %in% c('Yield', 'Starch.content', 'Starch.yield') & !is.na(Year)) %>%
+  ggplot(aes(x = Year, y = value, group = Country, color=Country, shape = Country)) +
+  facet_grid(rows = "element",
+             scales = "free",
+             switch = 'y',
+             labeller = as_labeller(Axis_labellerRs))+
+  geom_point(size=2) +
+  geom_smooth(method=lm, aes(group=Country, linetype=Country, colour=Country), se=FALSE, show.legend = TRUE) +
+  theme_pubr() +
+  theme(axis.title.y = element_blank(), 
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.border = element_blank(),
+        strip.text = element_text(size=11),
+        legend.title = element_blank(),
+        legend.position = "right")+
+  scale_color_manual(values = myColors, limits=force)+
+  scale_x_continuous(limits = c(1961,2021))+
+  scale_shape_manual(values = myShapes, limits=force)+
+  stat_cor()+
+  stat_regline_equation(label.x = 1985)
+
+
+plot_grid(panel1b, panel2,  rel_heights = c(1,3), nrow = 2)
 
 ## Over time with paths ####
 #We can also plot the progression over time, using paths

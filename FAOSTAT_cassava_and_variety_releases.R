@@ -273,8 +273,8 @@ CTVL %>% filter(element=='Yield') %>% ggplot(aes(x = Year, y = value, group = Co
   scale_linetype_manual(values = myLines, limits=force)
 
 ## Releases over time - scatter ####
-RelImran <- read.csv("D:/Dropbox/Business case analysis/TH_VN_var_releases.csv", header = TRUE)
-
+#First download published data on varietal releases and performance
+RelImran <- read.csv("data/TH_VN_var_releases.csv", header = TRUE)
 ggplot(RelImran, aes(x=Year, y=Yield, color=Country)) + 
   geom_point(size=2) +
   theme_pubr() +
